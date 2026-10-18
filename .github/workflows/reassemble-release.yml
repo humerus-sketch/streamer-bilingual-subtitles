@@ -1,0 +1,52 @@
+name: Reassemble verified release assets
+on:
+  workflow_dispatch:
+    inputs:
+      seed_ref:
+        description: 'Immutable commit containing the locally verified release-inputs'
+        required: true
+      publish:
+        description: 'Publish only after all file hashes and uploaded assets match'
+        type: boolean
+        default: false
+        required: true
+permissions:
+  contents: write
+jobs:
+  reassemble:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.seed_ref }}
+          path: seed
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12.13'
+      - name: Show available temporary disk space
+        run: df -h "$RUNNER_TEMP"
+      - name: Reassemble the exact frozen runtime and model files
+        run: python tools/mic-prototype/software/Reassemble-Assets.py --plan seed/release-inputs/reassembly/reassembly-plan.json --overlay seed/release-inputs/reassembly/reassembly-overlay.zip --output "$RUNNER_TEMP/reassembled"
+      - name: Verify locally tested application binaries and build release inventory
+        env:
+          RELEASE_OUTPUT: ${{ runner.temp }}/reassembled
+        run: python tools/mic-prototype/software/prepare_release_inventory.py --seed seed/release-inputs --output "$RELEASE_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: verified-reassembly-report
+          path: |
+            ${{ runner.temp }}/reassembled/reassembly-report.json
+            ${{ runner.temp }}/reassembled/release-allowlist.json
+            ${{ runner.temp }}/reassembled/publish-inventory.json
+            ${{ runner.temp }}/reassembled/release-assets/components-1.json
+            ${{ runner.temp }}/reassembled/release-assets/SHA256SUMS.txt
+      - name: Upload verified assets and publish only after digest validation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TARGET: ${{ github.sha }}
+          RELEASE_OUTPUT: ${{ runner.temp }}/reassembled
+          PUBLISH_RELEASE: ${{ inputs.publish }}
+        run: python tools/mic-prototype/software/publish_verified_release.py --output "$RELEASE_OUTPUT" --notes seed/release-inputs/release-notes.md
