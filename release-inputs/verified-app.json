@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "version": "0.1.0",
+  "artifacts": [
+    {
+      "name": "BilibiliSubtitle-0.1.0-win-x64.zip",
+      "bytes": 35676584,
+      "sha256": "e32df985062e0ff87c2f4d1756f4befdb7184244d1b5f7ac279c979156f7f49e"
+    },
+    {
+      "name": "BilibiliSubtitle-0.1.0-Setup.exe",
+      "bytes": 35712512,
+      "sha256": "164fcc99b408bcb5f92c30b1fdf93fda13559d1f1b8cc87f339c01ba70d11fe0"
+    }
+  ]
+}
