@@ -1,0 +1,16 @@
+.runtime/
+.venv/
+__pycache__/
+*.py[cod]
+*.exe
+*.dll
+*.pyd
+*.zip
+*.onnx
+*.wav
+*.mp3
+model.bin
+auth.json
+.env
+data/
+dist/

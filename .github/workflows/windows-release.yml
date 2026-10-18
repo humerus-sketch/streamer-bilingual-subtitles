@@ -1,0 +1,52 @@
+name: Windows software build
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Software version, X.Y.Z'
+        required: true
+        default: '0.1.0'
+      publish:
+        description: 'Publish the verified program assets to a new GitHub Release'
+        required: true
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.14.1'
+      - name: Test settings, update downloads and translation session policy
+        shell: pwsh
+        run: node --test tools/mic-prototype/desktop/host.test.mjs tools/mic-prototype/software/updates.test.mjs tools/mic-prototype/codex-resident.test.mjs tools/mic-prototype/translation-context.test.mjs
+      - name: Build installer and application ZIP
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          & tools/mic-prototype/software/Build-Distribution.ps1 -Version $env:RELEASE_VERSION -OutputDirectory "$env:RUNNER_TEMP/release"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-software-${{ inputs.version }}
+          path: |
+            ${{ runner.temp }}/release/BilibiliSubtitle-*-Setup.exe
+            ${{ runner.temp }}/release/BilibiliSubtitle-*-win-x64.zip
+            ${{ runner.temp }}/release/SHA256SUMS-app.txt
+            ${{ runner.temp }}/release/distribution-build.json
+      - name: Publish explicitly requested release
+        if: ${{ inputs.publish }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if ($env:RELEASE_VERSION -notmatch '^(0|[1-9][0-9]{0,5})\.(0|[1-9][0-9]{0,5})\.(0|[1-9][0-9]{0,5})$') { throw 'Invalid version' }
+          gh release create "v$env:RELEASE_VERSION" --target $env:GITHUB_SHA --title "主播双语字幕 $env:RELEASE_VERSION" --generate-notes "$env:RUNNER_TEMP/release/BilibiliSubtitle-$env:RELEASE_VERSION-Setup.exe" "$env:RUNNER_TEMP/release/BilibiliSubtitle-$env:RELEASE_VERSION-win-x64.zip" "$env:RUNNER_TEMP/release/SHA256SUMS-app.txt"

@@ -1,0 +1,5 @@
+# Optional, CPU-only speaker verification feature extractor. Existing dependencies
+# are supplied by requirements.txt; do not upgrade them when installing this file.
+# CPython 3.12 Windows x64 wheel SHA256:
+# cbbeea19fe6d584c54e93fe6615a7185b10e0d78fdb6471f9e44596018437c38
+kaldi-native-fbank==1.22.3

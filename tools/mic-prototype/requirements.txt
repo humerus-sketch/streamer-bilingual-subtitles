@@ -1,0 +1,9 @@
+# Windows x64 / Python 3.12 prototype pins, checked against PyPI 2026-10-16.
+# CUDA runtime DLLs are provisioned separately; never fall back to CPU silently.
+faster-whisper==1.2.1
+ctranslate2==4.8.3
+sounddevice==0.5.6
+onnxruntime==1.31.0
+numpy==2.5.4
+soxr==1.1.0
+nvidia-cublas-cu12==12.4.5.8; sys_platform == "win32"

@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "fixture_file": "corpus/fixtures-500.json",
+  "case_count": 500,
+  "model_slugs": ["gpt-6-sol", "gpt-6.1-sol", "gpt-5.6-terra"],
+  "seed": "2026-10-16-ja500-v1"
+}
