@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>主播双语字幕</title>
+<style>
+:root{color-scheme:light;font-family:system-ui,"Microsoft YaHei",sans-serif;font-size:14px;color:#24352e;background:#f6f7f3}*{box-sizing:border-box}body{max-width:1080px;margin:16px auto;padding:0 18px;line-height:1.5}h1{font-size:24px;line-height:1.3;margin:0}h2{font-size:18px;margin:8px 0}p{margin:6px 0}button,select,input,textarea{font:inherit}button{border:1px solid #c1cec4;border-radius:7px;background:#fff;padding:8px 12px;cursor:pointer}button.primary{background:#36664f;color:#fff;font-weight:600}button:disabled{opacity:.5;cursor:default}select{width:100%;min-width:0;max-width:100%;padding:7px;border:1px solid #bbc9bf;border-radius:5px;background:white}label{display:inline-flex;gap:7px;align-items:center;margin:5px 10px 5px 0}section,.card{background:#fff;border:1px solid #dce3dc;border-radius:10px;padding:14px;margin:10px 0}.app-header{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.app-header p{margin:3px 0 0}.input-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.input-grid label{display:flex;min-width:0;flex-direction:column;align-items:stretch;gap:4px;margin:0}.muted{color:#5e6f64;font-size:13px}.warning{color:#8c4f17}.error{color:#a32727;overflow-wrap:anywhere}.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.primary-actions{margin-top:12px}.status{padding:8px 10px;background:#edf3ed;border-radius:6px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}.utterance{font-size:19px;white-space:pre-wrap;overflow-wrap:anywhere}.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}.badge{font-size:12px;background:#edf1ec;border-radius:5px;padding:4px 7px;overflow-wrap:anywhere}textarea{width:100%;min-height:68px;border:1px solid #bdcabe;border-radius:6px;padding:8px}.metrics{font-variant-numeric:tabular-nums;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}.evaluation{border-top:1px solid #e7ece6;margin-top:13px;padding-top:10px}.empty{padding:24px 12px;text-align:center;color:#68796d}details>summary{cursor:pointer;font-weight:500}details[open]>summary{margin-bottom:10px}.advanced{border-top:1px solid #e7ece6;margin-top:12px;padding-top:10px}.advanced label{max-width:100%;flex-wrap:wrap}.advanced label select{width:auto}#message{margin:8px 0}#message:empty{display:none}#modelStatus{font-size:12px;overflow-wrap:anywhere}#outputPath{overflow-wrap:anywhere}@media(max-width:700px){.pair{grid-template-columns:1fr}body{margin:12px auto;padding:0 12px}section,.card{padding:12px}}@media(max-width:480px){.input-grid{grid-template-columns:minmax(0,1fr);gap:8px}.app-header{gap:8px}.primary-actions button{flex:1 1 auto}.utterance{font-size:18px}}
+</style>
+</head>
+<body>
+<header class="app-header"><div><h1>主播双语字幕</h1><p class="muted">日语讲话，同时显示中文与英文</p></div><span id="auth" class="badge">等待服务状态</span></header>
+<section id="capture-panel" aria-label="麦克风与翻译控制">
+  <div class="input-grid">
+    <label>麦克风 <select id="device"><option value="">请选择麦克风</option></select></label>
+    <label>翻译模型 <select id="model"><option value="">正在读取模型列表…</option></select></label>
+  </div>
+  <p class="muted">使用原始麦克风声音；参考前句译文，完整双语一次显示。</p>
+  <label><input id="speakerAdmissionEnabled" type="checkbox" checked>仅准入本人声纹</label><span id="speakerStatus" class="badge">正在读取声纹状态</span>
+  <p id="speakerWarning" class="warning" role="status"></p>
+  <div class="controls"><button id="speakerEnroll" disabled>登记本人声纹（25 秒）</button><button id="speakerEnrollCancel" disabled>取消登记</button><button id="speakerRefresh" disabled>刷新本地声纹状态</button></div>
+  <p class="muted">登记需你本人自然讲话，点击登记后才采麦克风；声纹在本机计算，不发送录音到翻译服务。未登记时不自动使用其他声音。</p>
+  <div class="controls primary-actions"><button id="start" class="primary" disabled>开始翻译</button><button id="stop" disabled>停止</button><button id="devices">刷新麦克风</button><button id="authorize">检查翻译登录</button></div>
+  <p id="message" role="status"></p>
+  <p id="modelStatus" class="muted" role="status"></p>
+  <div id="status" class="status" role="status">正在连接本机服务…</div>
+  <p class="muted">点击开始后才采音；识别文本将交给所选模型翻译。</p>
+  <details id="advanced-settings" class="advanced"><summary>高级设置与测试</summary>
+    <label>识别计算精度 <select id="compute"><option value="float16">float16（不做 int8 量化）</option><option value="int8_float16">int8_float16（量化对照）</option></select></label>
+    <p class="muted">默认 float16，减少量化因素；是否提升识别准确率仍需同批录音对照。</p>
+    <label>翻译并发 <select id="concurrency"><option value="1">1（等前句译文完成，再处理下一句）</option></select></label>
+    <p><label><input type="checkbox" id="record">本次保存麦克风音频，供人工逐句复核</label></p>
+    <p><label><input type="checkbox" id="recordProcessed">另存识别实际使用的音频，供逐句对照</label></p>
+    <p class="muted">开始后将保存日文、译文、时序与人工评价到本机测试目录；识别出的日文与说话人提示会发给官方翻译服务。两个录音选项均未勾选时不保存音频；原始音频与处理后音频分别留档。</p>
+    <div class="controls"><button id="replay" disabled>公开日语录音回放（不采麦克风）</button><button id="save" disabled>保存测试报告</button><button id="download">下载当前 JSON</button></div>
+    <p class="muted">公开录音回放仅在服务启动时指定样本文件后可用；它可验证链路，不代表你本人讲话的准确性或麦克风采音效果。</p>
+    <div class="controls"><label>已采麦克风录音 <select id="capturedReplay"><option value="">请选择已配置录音</option></select></label><button id="capturedReplayStart" disabled>实时回放已采录音</button></div>
+    <p class="muted">只回放启动时明确配置的录音文件，本次不打开麦克风；保持原始声音，可对照识别设置。</p>
+    <p id="authHelp" class="muted">正在读取当前翻译方式；只有点击开始后才会处理音频。</p>
+    <p id="modelHelp" class="muted"></p>
+    <p id="speakerDiagnostics" class="metrics"></p>
+    <div id="diagnosticStatus" class="status"></div><p id="outputPath" class="muted"></p>
+  </details>
+</section>
+<div id="rows"><div class="empty">请选择麦克风和翻译模型，然后点击“开始翻译”。</div></div>
+<details id="test-methods" class="card"><summary>测试统计与准确性复核</summary>
+  <p>自然说日语，每句结束留出短暂停顿。先测试否定、数字、名字、纠正和游戏术语；停止后逐句填写正确日文与两种译文评价。正式准确率需要听原音的人复核。</p>
+  <p class="warning">当前“端到端”起点是 VAD 估计的最后有声帧，32 ms 仅为帧分辨率，实际端点误差尚未知；页面会依次滚动到完整双语，经过两次 animation frame 并确认两种译文都在可视区域后回执。仍需人工标注原音终点并录屏抽查真实显示。后台标签页会等待重新可见才确认。未完成、失败和缺口单独计数，不能当成成功延迟。</p>
+  <div id="stats" class="metrics">尚无片段。</div>
+  <details><summary>片段诊断与原始识别文本</summary><p class="muted">待处理、拒绝、失败与缺口只记在这里，不作为字幕显示。识别日文供故障复核。</p><pre id="segmentDiagnostics" class="metrics" style="max-height:320px;overflow:auto">尚无片段。</pre></details>
+  <details><summary>页面延迟诊断（仅保留最近 512 条阶段事件）</summary><p class="muted">区分事件接收、DOM 写入、后台等待、两次动画帧和回执请求；不包含账号凭证或讲话文本。动画帧回执仍是显示代理指标，真实可见需录屏抽查。</p><button id="downloadTiming">下载页面时序 JSON</button><pre id="pageTimingJson" class="metrics" style="max-height:280px;overflow:auto">尚无页面时序。</pre></details>
+</details>
+<template id="row-template"><article class="card"><div class="controls"><b class="row-id"></b><span class="row-status badge"></span></div><div class="pair"><div><b>简体中文</b><p class="zh utterance"></p></div><div><b>English</b><p class="en utterance"></p></div></div><details class="evaluation"><summary>查看识别文本、时序与复核准确性</summary><p class="timing metrics"></p><p class="ja metrics"></p><label>正确日文（听原音后填写）</label><textarea class="reference" placeholder="不要直接复制 ASR；依照原音填写"></textarea><label>中文 <select class="zh-quality"></select></label><label>英文 <select class="en-quality"></select></label><textarea class="note" placeholder="否定、数字、人名、遗漏、幻觉、断句或字幕缺口等"></textarea><button class="evaluate">保存此句评价</button><span class="evaluation-result muted"></span></details></article></template>
+<script>
+'use strict';
+const capability='__CAPABILITY__';
+const $=selector=>document.querySelector(selector), elements=new Map(), rows=new Map(), ackPending=new Set();
+let state={}, browserClock=null, currentSession=null, ackTail=Promise.resolve(), deviceRefresh=null, deviceInventory=[];
+const streamConnectionError='本机服务连接断开；页面会尝试恢复，请确认采音状态。';
+// MODEL_SELECTION_STATE_START: model changes are explicit; stale SSE cannot undo an acknowledged switch.
+function createModelSelectionState(){
+  let provider=null,models=[],confirmed='',revision=-1,pending=null,error='';
+  function applySelection(next){const incomingRevision=next.modelSelectionRevision;if(Number.isSafeInteger(incomingRevision)&&incomingRevision>=revision&&typeof next.selectedModel==='string'){confirmed=next.selectedModel;revision=incomingRevision;}}
+  return {
+    sync(next){
+      if(provider!==next.provider){provider=next.provider;confirmed='';revision=-1;pending=null;error='';}
+      models=Array.isArray(next.models)?next.models.filter(model=>typeof model?.slug==='string'&&model.slug):[];
+      if(['codex_cli','codex_resident'].includes(provider))applySelection(next);
+      else if(!models.some(model=>model.slug===confirmed))confirmed=models.find(model=>model.is_default)?.slug||models[0]?.slug||'';
+      return this.snapshot();
+    },
+    begin(slug){if(pending!==null)throw new Error('translation_model_change_pending');if(!models.some(model=>model.slug===slug))throw new Error('translation_model_not_available');if(slug===confirmed)return false;pending=slug;error='';return true;},
+    complete(result){if(typeof result.selectedModel!=='string'||!Number.isSafeInteger(result.modelSelectionRevision))throw new Error('translation_model_response_invalid');applySelection(result);pending=null;error='';return this.snapshot();},
+    reject(reason){pending=null;error=String(reason);return this.snapshot();},
+    chooseLocal(slug){if(models.some(model=>model.slug===slug))confirmed=slug;return this.snapshot();},
+    snapshot(){const selected=pending??confirmed;return {models,selected,confirmed,revision,pending,error,available:models.some(model=>model.slug===selected)};}
+  };
+}
+// MODEL_SELECTION_STATE_END
+const modelSelection=createModelSelectionState();
+// SUBTITLE_DISPLAY_STATE_START: partial ASR and translations never become visible subtitle cards.
+function isCompleteBilingualRow(row){
+  return row?.terminal===true&&row.status==='completed'&&row.visibleEligible===true&&Number.isFinite(row.orderedAtNodeMs)
+    &&typeof row.translation?.zh==='string'&&row.translation.zh.trim().length>0
+    &&typeof row.translation?.en==='string'&&row.translation.en.trim().length>0;
+}
+function createSubtitleDisplayState(){
+  let sessionId=null;const latest=new Map(),presented=new Map();
+  return {
+    reset(value){sessionId=value;latest.clear();presented.clear();},
+    accept(row){
+      if(!row||typeof row.workerSessionId!=='string'||row.workerSessionId!==sessionId||!Number.isSafeInteger(row.segmentId)||row.segmentId<1||!Number.isSafeInteger(row.revision)||row.revision<1)return {accepted:false};
+      const previous=latest.get(row.segmentId);
+      if(previous&&(row.revision<previous.revision||row.revision===previous.revision&&(previous.terminal===true&&row.terminal!==true||previous.visibleEligible===true&&row.visibleEligible!==true)))return {accepted:false};
+      const key=row.segmentId+':'+row.revision,committed=presented.get(key);
+      // A completed pair is immutable. Later ACK/evaluation events may only update its diagnostics.
+      const accepted=committed?{...row,status:'completed',terminal:true,visibleEligible:true,orderedAtNodeMs:committed.orderedAtNodeMs,translation:committed.translation,ja:committed.ja}:row;
+      latest.set(row.segmentId,accepted);
+      const ready=isCompleteBilingualRow(accepted),render=ready&&!committed;
+      if(render)presented.set(key,accepted);
+      return {accepted:true,row:accepted,key,ready,render};
+    }
+  };
+}
+// SUBTITLE_DISPLAY_STATE_END
+const subtitleDisplay=createSubtitleDisplayState();
+// SPEAKER_ADMISSION_UI_START: enrollment is explicit and an unavailable profile never falls back open.
+function speakerAdmissionUiState(next,enabled){
+  const admission=next.speakerAdmission??{},enrolling=admission.enrollment?.active===true||admission.status==='enrolling';
+  const ready=admission.available===true&&admission.status==='ready'&&admission.enrolled===true;
+  const decision=admission.latestDecision??{};
+  return {enabled,ready,enrolling,available:admission.available===true,blocked:enabled&&!ready,status:admission.status??'unconfigured',
+    voicedMs:admission.enrollment?.voicedMs,elapsedMs:admission.enrollment?.elapsedMs,reason:admission.enrollment?.reason??null,
+    decision:{decision:decision.decision,reason:decision.reason,score:decision.score,threshold:decision.threshold,voicedMs:decision.voicedMs,gateMs:decision.gateMs}};
+}
+// SPEAKER_ADMISSION_UI_END
+// PAGE_TIMING_RECORDER_START: pure bounded recorder; no network or application state mutation.
+function createPageTimingRecorder({now,clock,visibility,timeOrigin,limit=512}){
+  const entries=[];let total=0;
+  return {record(stage,metadata={},row=null){const perfMs=now(),mapping=clock(),view=visibility();const orderedAtNodeMs=Number.isFinite(row?.orderedAtNodeMs)?row.orderedAtNodeMs:null;const nodeMs=Number.isFinite(mapping?.offsetMs)?perfMs+mapping.offsetMs:null;const entry={sequence:++total,stage,perfMs,nodeMs,clockOffsetMs:mapping?.offsetMs??null,clockUncertaintyMs:mapping?.uncertaintyMs??null,clockRttMs:mapping?.rttMs??null,clockSyncedPerfMs:mapping?.syncedPerfMs??null,clockAgeMs:Number.isFinite(mapping?.syncedPerfMs)?perfMs-mapping.syncedPerfMs:null,...view,sessionId:row?.workerSessionId??null,segmentId:row?.segmentId??null,revision:row?.revision??null,orderedAtNodeMs,sinceOrderedMs:nodeMs!==null&&orderedAtNodeMs!==null?nodeMs-orderedAtNodeMs:null,...metadata};entries.push(entry);if(entries.length>limit)entries.splice(0,entries.length-limit);return entry;},snapshot(){return {schemaVersion:1,timeOrigin,retainedLimit:limit,totalEvents:total,droppedEvents:total-entries.length,entries:entries.map(entry=>({...entry}))};}};
+}
+// PAGE_TIMING_RECORDER_END
+const pageTiming=createPageTimingRecorder({now:()=>performance.now(),clock:()=>browserClock,visibility:()=>({hidden:document.hidden,visibilityState:document.visibilityState,focused:document.hasFocus()}),timeOrigin:performance.timeOrigin});
+function tracePage(stage,metadata={},row=null){return pageTiming.record(stage,metadata,row);}
+function publishPageTiming(){$('#pageTimingJson').textContent=JSON.stringify(pageTiming.snapshot(),null,2);}
+function downloadJson(value,name){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+document.addEventListener('visibilitychange',()=>{tracePage('visibility_changed');publishPageTiming();task(reportPageStatus);});
+window.addEventListener('focus',()=>{tracePage('window_focus');publishPageTiming();task(reportPageStatus);});
+window.addEventListener('blur',()=>{tracePage('window_blur');publishPageTiming();task(reportPageStatus);});
+tracePage('page_started');publishPageTiming();
+const qualities=[['unreviewed','未评价'],['usable','可用'],['minor','轻微问题'],['critical','关键语义错误'],['ambiguous','存在歧义']];
+const labels={recognizing:'识别中',queued:'排队',translating:'翻译中',completed:'完整双语',failed:'翻译失败',gap:'明确缺口',rejected:'声纹未准入'};
+const sec=value=>Number.isFinite(value)?(value/1000).toFixed(3)+' 秒':'未测得';
+async function post(path,body={}){const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json','x-prototype-capability':capability},body:JSON.stringify(body)});const result=await response.json();if(!response.ok)throw new Error(result.error||'request_failed');return result;}
+async function reportPageStatus(){return post('/page-status',{version:1,documentHidden:document.hidden,focused:document.hasFocus(),viewport:{width:window.innerWidth,height:window.innerHeight}});}
+function message(text,error=false){$('#message').textContent=text;$('#message').className=error?'error':'';}
+async function task(action){try{await action();}catch(error){message(error.message,true);}}
+async function syncClock(){tracePage('clock_sync_start');let best=null;for(let i=0;i<5;i++){const start=performance.now();const response=await fetch('/clock');const value=await response.json();const end=performance.now();if(!response.ok||!Number.isFinite(value.nodeMs))continue;const sample={offsetMs:value.nodeMs-(start+end)/2,uncertaintyMs:(end-start)/2,rttMs:end-start,syncedPerfMs:end};if(!best||sample.rttMs<best.rttMs)best=sample;}if(best)browserClock=best;tracePage('clock_sync_complete');publishPageTiming();}
+function updateState(next){state=next;if(currentSession!==next.session?.id){currentSession=next.session?.id;rows.clear();elements.clear();subtitleDisplay.reset(currentSession);ackPending.clear();ackTail=Promise.resolve();$('#rows').replaceChildren();}
+  const resident=next.provider==='codex_resident',cli=next.provider==='codex_cli'||resident;
+  $('#authorize').textContent=cli?'检查 CLI 登录':'Continue with ChatGPT';
+  $('#auth').textContent=cli?(resident?'持续会话 · ':'')+(next.auth==='authorized'?'CLI 已登录 ChatGPT':'CLI 登录未确认')+' · '+(next.codexServiceTier==='fast'?'Fast 档（请求）':'Standard 档'):(next.auth==='authorized'?'已核对账号与目录':next.auth);
+  $('#authHelp').textContent=cli?'复用本机官方 Codex CLI 的 ChatGPT 登录；不再进行 SIWC 授权，页面不接触 Token。登录检查不核对与 Codex 桌面账号是否一致。':'授权名称：Bilibili Subtitle SIWC Probe。请选当前 Codex 对应账号；账号签名与既有账号校验不符会拒绝。Token 仅保留在 Node 进程内存。';
+  $('#modelHelp').textContent=resident?'模型目录来自本机官方 Codex app-server；可在采音或翻译期间切换，下个识别完成的语音片段使用新模型，已排队任务保留原模型且不会取消。持续会话有界复用；各模型准确性和延迟需独立验证。':cli?'模型目录来自本机官方 Codex app-server；切换对后续片段生效，已排队任务保留原模型。可用性仍以实际调用结果为准。':'模型选项来自本次 SIWC 授权后的官方目录。';
+  const selection=modelSelection.sync(next),models=selection.models,selected=selection.selected;
+  const catalogKey=JSON.stringify([models.map(model=>[model.slug,model.display_name]),!selection.available?selected:'']);
+  if($('#model').dataset.catalog!==catalogKey){$('#model').replaceChildren(new Option(cli?'请选择 CLI 模型':'请选择已授权模型',''));for(const model of models)$('#model').add(new Option((model.display_name||model.slug)+' · '+model.slug,model.slug));if(selected&&!selection.available)$('#model').add(new Option('当前请求模型（目录不可见） · '+selected,selected));$('#model').dataset.catalog=catalogKey;}
+  $('#model').value=selected;
+  const modelIssue=selection.error||next.selectionError||next.catalogError;
+  $('#modelStatus').textContent=selection.pending?'正在切换到 '+selected+'…':modelIssue?'模型状态：'+modelIssue:cli&&selected?'当前模型：'+selected:'';
+  $('#modelStatus').className=modelIssue?'error':'muted';
+  const speaker=speakerAdmissionUiState(next,$('#speakerAdmissionEnabled').checked),busy=speaker.enrolling||next.authBusy||next.captureStarting||next.workerActive||next.residentClosing||(next.queue?.active>0)||(next.queue?.pending>0)||(next.queue?.cleanup>0);
+  $('#speakerStatus').textContent=speaker.enrolling?'正在登记 · 有声 '+sec(speaker.voicedMs)+' / 已用 '+sec(speaker.elapsedMs):speaker.ready?'本人声纹已登记':speaker.available?'尚未登记本人声纹':'声纹资源未准备好';
+  $('#speakerWarning').textContent=!speaker.enabled?'声纹门槛未开启，背景声音可能进入识别与翻译。':speaker.enrolling?'请自然讲话，登记完成前不会启动字幕翻译。':speaker.blocked?'声纹门槛已开启：先选择麦克风，登记本人声音；未准备好时不启动翻译。':'';
+  $('#speakerEnroll').disabled=busy||!speaker.available||!$('#device').value;
+  $('#speakerEnrollCancel').disabled=!speaker.enrolling;
+  $('#speakerRefresh').disabled=busy;
+  $('#speakerAdmissionEnabled').disabled=busy;
+  const decision=speaker.decision,number=value=>Number.isFinite(value)?value.toFixed(3):'未测得';
+  $('#speakerDiagnostics').textContent=['声纹状态：'+speaker.status,'准入：'+(speaker.enabled?'开启':'关闭'),...(speaker.reason?['登记原因：'+speaker.reason]:[]),...(decision.decision?['最近判定：'+decision.decision+(decision.reason?' · '+decision.reason:''),'相似度：'+number(decision.score)+'；阈值：'+number(decision.threshold),'有声时长：'+sec(decision.voicedMs)+'；准入耗时：'+sec(decision.gateMs)]:[])].join('\n');
+  const captures=Array.isArray(next.capturedReplayOptions)?next.capturedReplayOptions.filter(item=>typeof item?.id==='string'&&/^[A-Za-z0-9_-]{1,40}$/.test(item.id)):[];
+  const capturesKey=JSON.stringify(captures),previousCapture=$('#capturedReplay').value;
+  if($('#capturedReplay').dataset.catalog!==capturesKey){$('#capturedReplay').replaceChildren(new Option('请选择已配置录音',''));for(const item of captures)$('#capturedReplay').add(new Option(item.label||item.id,item.id));$('#capturedReplay').value=captures.some(item=>item.id===previousCapture)?previousCapture:'';$('#capturedReplay').dataset.catalog=capturesKey;}
+  $('#start').disabled=busy||speaker.blocked||next.auth!=='authorized'||!$('#device').value||!selection.available||selection.pending!==null;
+  $('#replay').disabled=busy||speaker.blocked||next.auth!=='authorized'||!selection.available||selection.pending!==null||!next.replayAvailable;
+  $('#capturedReplayStart').disabled=busy||speaker.blocked||next.auth!=='authorized'||!selection.available||selection.pending!==null||!$('#capturedReplay').value;
+  $('#stop').disabled=!next.workerActive&&!next.captureStarting;$('#authorize').disabled=busy;$('#save').disabled=!next.session;
+  for(const id of ['device','compute','concurrency','record','recordProcessed','capturedReplay'])$('#'+id).disabled=busy;
+  $('#model').disabled=Boolean(selection.pending!==null||!models.length||(cli?(next.captureStarting||next.authBusy||next.residentClosing):busy));
+  $('#status').textContent=[next.message,...(next.warnings||[])].filter(Boolean).join('\n');
+  $('#diagnosticStatus').textContent=[next.message,'阶段：'+next.phase,'翻译处理中：'+(next.queue?.active||0)+'；等待：'+(next.queue?.pending||0)+(next.provider==='codex_cli'?'；CLI 收尾：'+(next.queue?.cleanup||0):''),...(resident?['持续会话：'+(next.residentClosing?'正在关闭':next.captureStarting?'准备中':next.workerActive?'运行中':busy?'尾部翻译中':next.session?'音频已停止':'未启动')]:[]),'Worker 时钟误差界：'+sec(next.workerClock?.uncertaintyMs),...(next.warnings||[])].join('\n');
+  $('#outputPath').textContent=next.session?'测试目录：'+next.session.outputDir:'';
+  for(const row of next.rows||[])updateRow(row);updateStats();
+}
+function updateRow(incoming){const admission=subtitleDisplay.accept(incoming);if(!admission.accepted)return;const {row,key}=admission;rows.set(key,row);if(!admission.ready){updateStats();return;}let element=elements.get(key);if(!element){element=$('#row-template').content.firstElementChild.cloneNode(true);for(const [oldKey,oldElement]of elements)if(oldKey.startsWith(row.segmentId+':')){oldElement.remove();elements.delete(oldKey);}elements.set(key,element);for(const selector of ['.zh-quality','.en-quality'])for(const [value,label]of qualities)element.querySelector(selector).add(new Option(label,value));element.querySelector('.evaluate').onclick=()=>task(async()=>{await post('/evaluate',{sessionId:row.workerSessionId,segmentId:row.segmentId,revision:row.revision,referenceJa:element.querySelector('.reference').value,zhQuality:element.querySelector('.zh-quality').value,enQuality:element.querySelector('.en-quality').value,note:element.querySelector('.note').value});element.querySelector('.evaluation-result').textContent=' 已保存';});}
+  element.querySelector('.row-id').textContent='片段 '+row.segmentId+' · r'+row.revision;
+  element.querySelector('.row-status').textContent=(labels[row.status]||row.status)+(row.translationModel?' · '+row.translationModel:'')+(row.errorCode?' · '+row.errorCode:'');
+  element.querySelector('.ja').textContent=row.ja||'此处存在音频／处理缺口';
+  if(admission.render){element.querySelector('.zh').textContent=row.translation.zh;element.querySelector('.en').textContent=row.translation.en;$('#rows .empty')?.remove();$('#rows').append(element);tracePage('dom_bilingual_mutated',{},row);}
+  const t=row.latency||{};element.querySelector('.timing').textContent=['断句等待 '+sec(t.segmentationMs),'ASR '+sec(t.asrMs),'排队 '+sec(t.queueMs),'翻译 '+sec(t.translationMs),'排序等待 '+sec(t.orderingWaitMs),'VAD 端点→页面 '+sec(t.endToEndVisibleMs),'端点帧分辨率 '+sec(t.audioEndResolutionMs),'真实端点误差 '+sec(t.audioEndUncertaintyMs)].join(' · ')+(row.forcedBoundary?'\n强制切分：'+row.boundaryReason+'（需重点复核断句）':'');
+  if(row.evaluation&&!element.querySelector('details').open){element.querySelector('.reference').value=row.evaluation.referenceJa;element.querySelector('.zh-quality').value=row.evaluation.zhQuality;element.querySelector('.en-quality').value=row.evaluation.enQuality;element.querySelector('.note').value=row.evaluation.note;}
+  if(!Number.isFinite(row.visibleNodeMs)&&!ackPending.has(key))acknowledge(row,key);
+  updateStats();
+}
+function measureBilingualViewport(element){
+  const width=window.innerWidth,height=window.innerHeight;
+  if(!element||document.hidden||![width,height].every(value=>Number.isFinite(value)&&value>0))throw new Error('subtitle_viewport_unavailable');
+  const targets={};
+  for(const language of ['zh','en']){
+    const target=element.querySelector('.'+language);
+    if(!target?.textContent?.trim())throw new Error('subtitle_text_missing');
+    for(let node=target;node;node=node.parentElement){const style=window.getComputedStyle(node);if(node.hidden||style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||Number(style.opacity)===0)throw new Error('subtitle_not_visible');}
+    const rect=target.getBoundingClientRect();
+    const box=Object.fromEntries(['top','left','right','bottom','width','height'].map(name=>[name,rect[name]]));
+    if(!Object.values(box).every(Number.isFinite)||box.width<=0||box.height<=0||box.left<0||box.top<0||box.right>width||box.bottom>height)throw new Error('subtitle_outside_viewport');
+    targets[language]=box;
+  }
+  return {version:1,documentHidden:false,focused:document.hasFocus(),animationFrames:2,viewport:{width,height},targets,bothFullyInViewport:true};
+}
+function acknowledge(row,key){
+  ackPending.add(key);
+  const next=ackTail.then(()=>acknowledgeVisible(row,key),()=>acknowledgeVisible(row,key));
+  ackTail=next.catch(()=>{});return next;
+}
+async function acknowledgeVisible(row,key){
+  const sessionId=row.workerSessionId;
+  const release=()=>{if(currentSession===sessionId)ackPending.delete(key);};
+  tracePage('ack_start',{},row);
+  try{
+    if(currentSession!==sessionId){tracePage('ack_stale_session',{},row);release();return;}
+    if(document.hidden){tracePage('hidden_wait_start',{},row);publishPageTiming();await new Promise(done=>{const listener=()=>{if(!document.hidden){document.removeEventListener('visibilitychange',listener);tracePage('hidden_wait_end',{},row);done();}};document.addEventListener('visibilitychange',listener);});}
+    if(currentSession!==sessionId){tracePage('ack_stale_session',{},row);release();return;}
+    if(!browserClock)await syncClock();
+    if(!browserClock)throw new Error('browser_clock_sync_missing');
+    const element=elements.get(key);
+    if(!element)throw new Error('subtitle_element_missing');
+    element.querySelector('.pair').scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});
+    tracePage('viewport_scroll_requested',{},row);
+    tracePage('raf_requested',{},row);publishPageTiming();
+    await new Promise(done=>requestAnimationFrame(callbackTimestamp=>{tracePage('raf_1',{rafCallbackTimestamp:callbackTimestamp},row);requestAnimationFrame(secondTimestamp=>{tracePage('raf_2',{rafCallbackTimestamp:secondTimestamp},row);done();});}));
+    if(currentSession!==sessionId){tracePage('ack_stale_session',{},row);publishPageTiming();release();return;}
+    if(document.hidden){tracePage('ack_hidden_after_raf',{},row);publishPageTiming();release();queueMicrotask(()=>acknowledge(row,key));return;}
+    const visibilityProof=measureBilingualViewport(element);
+    const visibleNodeMs=performance.now()+browserClock.offsetMs;
+    tracePage('viewport_confirmed',{visibilityProof},row);
+    tracePage('visible_post_send',{visibleNodeMs},row);publishPageTiming();
+    await post('/visible',{sessionId,segmentId:row.segmentId,revision:row.revision,visibleNodeMs,clockUncertaintyMs:browserClock.uncertaintyMs,visibilityProof});
+    tracePage('visible_post_return',{},row);publishPageTiming();
+  }catch(error){tracePage('ack_error',{errorCode:String(error.message).slice(0,160)},row);publishPageTiming();if(currentSession===sessionId)message('页面可见时间未确认：'+error.message,true);release();}
+}
+function percentile(values,p){if(!values.length)return null;const sorted=[...values].sort((a,b)=>a-b);if(p===.5)return(sorted[Math.floor((sorted.length-1)/2)]+sorted[Math.floor(sorted.length/2)])/2;return sorted[Math.max(0,Math.ceil(sorted.length*p)-1)];}
+function updateStats(){const all=[...rows.values()],completed=all.filter(isCompleteBilingualRow),visible=completed.map(row=>row.latency?.endToEndVisibleMs).filter(Number.isFinite);const failed=all.filter(row=>row.status==='failed').length,gaps=all.filter(row=>row.status==='gap').length,rejected=all.filter(row=>row.status==='rejected').length;const judged=completed.filter(row=>row.evaluation&&row.evaluation.zhQuality!=='unreviewed'&&row.evaluation.enQuality!=='unreviewed');const usable=judged.filter(row=>row.evaluation.zhQuality==='usable'&&row.evaluation.enQuality==='usable').length;const within=completed.filter(row=>Number.isFinite(row.latency?.endToEndVisibleMs)&&row.latency.endToEndVisibleMs<=3000).length;$('#stats').textContent=['收到片段／缺口 '+all.length+'；完整双语 '+completed.length+'；失败 '+failed+'；缺口 '+gaps+'；未准入 '+rejected+'；识别／排队／处理中 '+all.filter(row=>['recognizing','queued','translating'].includes(row.status)).length,'成功且可见计时有效 n='+visible.length+'：P50 '+sec(percentile(visible,.5))+'；P95 '+sec(percentile(visible,.95)),'3 秒内完整可见 '+within+'/'+all.length+'（分母包含拒绝、失败与未完成；非准确率）','人工双语均评价可用 '+usable+'/'+judged.length+' 个已评价片段（待评价不算可用）'].join('\n');$('#segmentDiagnostics').textContent=all.length?all.map(row=>['片段 '+row.segmentId+' · r'+row.revision+' · '+(labels[row.status]||row.status)+(row.errorCode?' · '+row.errorCode:''),row.ja?'识别：'+row.ja:'',row.speakerAdmission?'声纹：'+JSON.stringify(row.speakerAdmission):''].filter(Boolean).join('\n')).join('\n\n'):'尚无片段。';}
+async function refreshDevices(){
+  if(deviceRefresh)return deviceRefresh;
+  $('#devices').disabled=true;
+  deviceRefresh=(async()=>{const inventory=await post('/devices');const previous=deviceInventory.find(device=>String(device.index)===$('#device').value);const devices=inventory.devices.filter(device=>device.isWasapi&&device.maxInputChannels>0);const matches=previous?devices.filter(device=>device.name===previous.name&&device.hostApi===previous.hostApi):[];const previouslyUnique=previous&&deviceInventory.filter(device=>device.name===previous.name&&device.hostApi===previous.hostApi).length===1;$('#device').replaceChildren(new Option('请选择麦克风',''));for(const device of devices)$('#device').add(new Option(device.index+' · '+device.name+' · '+device.defaultSampleRate+' Hz',device.index));$('#device').value=previouslyUnique&&matches.length===1?String(matches[0].index):'';deviceInventory=devices;message(devices.length?'已刷新 WASAPI 输入列表。':'未发现可用 WASAPI 输入，请检查麦克风连接。',!devices.length);updateState(state);})();
+  try{return await deviceRefresh;}finally{deviceRefresh=null;$('#devices').disabled=false;}
+}
+$('#devices').onclick=()=>task(refreshDevices);
+$('#authorize').onclick=()=>task(async()=>{if(['codex_cli','codex_resident'].includes(state.provider)){const result=await post('/cli/check');message(result.loggedIn?'CLI 已登录 ChatGPT；尚未采音。':'未确认 CLI 的 ChatGPT 登录；请检查本机登录状态。',!result.loggedIn);return;}const result=await post('/auth/start');window.location.assign(result.url);});
+$('#start').onclick=()=>task(async()=>{await syncClock();if(!browserClock||browserClock.uncertaintyMs>500)throw new Error('browser_clock_sync_failed');const result=await post('/start',{device:Number($('#device').value),model:$('#model').value,computeType:$('#compute').value||'float16',concurrency:Number($('#concurrency').value),enhancement:'off',speakerAdmission:$('#speakerAdmissionEnabled').checked,record:$('#record').checked,recordProcessed:$('#recordProcessed').checked});message('本次采音已明确启动。测试目录：'+result.outputDir);});
+$('#replay').onclick=()=>task(async()=>{await syncClock();if(!browserClock||browserClock.uncertaintyMs>500)throw new Error('browser_clock_sync_failed');const result=await post('/start',{source:'public_replay',model:$('#model').value,computeType:$('#compute').value||'float16',concurrency:Number($('#concurrency').value),enhancement:'off',speakerAdmission:$('#speakerAdmissionEnabled').checked,record:false,recordProcessed:$('#recordProcessed').checked});message('已明确启动公开录音实时回放；未启动麦克风。测试目录：'+result.outputDir);});
+$('#capturedReplayStart').onclick=()=>task(async()=>{await syncClock();if(!browserClock||browserClock.uncertaintyMs>500)throw new Error('browser_clock_sync_failed');const result=await post('/start',{source:'captured_replay',replayId:$('#capturedReplay').value,model:$('#model').value,computeType:$('#compute').value||'float16',concurrency:Number($('#concurrency').value),enhancement:'off',speakerAdmission:$('#speakerAdmissionEnabled').checked,record:false,recordProcessed:$('#recordProcessed').checked});message('正在实时回放已有麦克风录音；本次未启动麦克风。测试目录：'+result.outputDir);});
+$('#stop').onclick=()=>task(async()=>{await post('/stop');message('停止请求已发送，等待尾部识别和已提交翻译。');});
+$('#save').onclick=()=>task(async()=>{const result=await post('/save',{sessionId:currentSession});message('已保存：'+result.outputDir+'\\report.json');});
+$('#download').onclick=()=>task(async()=>{const response=await fetch('/report');const report=await response.json();downloadJson({...report,pageTiming:pageTiming.snapshot()},'mic-prototype-report.json');});
+$('#downloadTiming').onclick=()=>downloadJson(pageTiming.snapshot(),'mic-prototype-page-timing.json');
+$('#device').onchange=()=>updateState(state);
+$('#speakerAdmissionEnabled').onchange=()=>updateState(state);
+$('#speakerEnroll').onclick=()=>task(async()=>{if(!$('#device').value)throw new Error('请先选择麦克风。');await post('/speaker/enroll',{device:Number($('#device').value),seconds:25});message('本人声纹登记已启动，请自然讲话；完成后才可开启字幕翻译。');});
+$('#speakerEnrollCancel').onclick=()=>task(async()=>{await post('/speaker/enroll/cancel');message('已请求取消声纹登记，等待本机采音结束。');});
+$('#speakerRefresh').onclick=()=>task(async()=>{await post('/speaker/refresh');message('已读取本地声纹状态；未启动采音。');});
+$('#capturedReplay').onchange=()=>updateState(state);
+$('#model').onchange=()=>task(async()=>{const requested=$('#model').value;if(!['codex_cli','codex_resident'].includes(state.provider)){modelSelection.chooseLocal(requested);updateState(state);return;}if(!modelSelection.begin(requested)){updateState(state);return;}updateState(state);try{const result=await post('/api/translation-model',{model:requested});modelSelection.complete(result);updateState(state);message('后续语音片段改用 '+modelSelection.snapshot().selected+'；已排队任务保留原模型。');}catch(error){modelSelection.reject(error.message);updateState(state);message('模型切换失败：'+error.message,true);}});
+const stream=new EventSource('/events');stream.onmessage=event=>{try{const data=JSON.parse(event.data);tracePage('sse_received',{eventType:data.type,eventStatus:data.row?.status??null},data.row);if(data.type==='state')updateState(data.state);else if(['segment','ordered','visibility','evaluation'].includes(data.type))updateRow(data.row);}catch{tracePage('sse_read_error');publishPageTiming();message('无法读取服务事件。',true);}};stream.onerror=()=>{tracePage('sse_connection_error');publishPageTiming();message(streamConnectionError,true);};stream.onopen=()=>{tracePage('sse_connection_open');publishPageTiming();if($('#message').textContent===streamConnectionError)message('本机服务连接已恢复。');};
+task(refreshDevices);task(async()=>{await syncClock();await reportPageStatus();});setInterval(()=>task(syncClock),60000);setInterval(()=>task(reportPageStatus),5000);
+</script>
+</body>
+</html>
