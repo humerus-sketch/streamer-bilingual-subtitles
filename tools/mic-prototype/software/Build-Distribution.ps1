@@ -59,7 +59,8 @@ $manifest.files=$files
 [IO.File]::WriteAllText($manifestPath,($manifest|ConvertTo-Json -Depth 8),$utf8)
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip=Join-Path $OutputDirectory ('BilibiliSubtitle-'+$Version+'-win-x64.zip')
-[IO.Compression.ZipFile]::CreateFromDirectory($application,$zip,[IO.Compression.CompressionLevel]::Optimal,$false)
+. (Join-Path $PSScriptRoot 'Write-ApplicationZip.ps1')
+Write-ApplicationZip -SourceDirectory $application -DestinationPath $zip|Out-Null
 $setup=Join-Path $OutputDirectory ('BilibiliSubtitle-'+$Version+'-Setup.exe')
 & $compiler @references ('/out:'+$setup) '/main:BilibiliSubtitlePrototype.InstallerProgram' ('/resource:'+$zip+',app.zip') ('/resource:'+(Join-Path $application 'software-release.json')+',software-release.json') $core (Join-Path $PSScriptRoot 'InstallerProgram.cs') $assemblyInfo
 if($LASTEXITCODE -ne 0){throw 'Setup EXE compilation failed.'}
