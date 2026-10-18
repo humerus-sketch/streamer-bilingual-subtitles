@@ -108,8 +108,8 @@
   },
   "overlay": {
     "fileName": "reassembly-overlay.zip",
-    "bytes": 832154,
-    "sha256": "db13669171dc46819478ae0a3bb3a3e4124d0736468bacfa2c49fa5c9629022b"
+    "bytes": 832479,
+    "sha256": "6bc0d52b32b0523c19a9df9b7959a7d0c366826cd90e391be36b4912f428d20b"
   },
   "inventories": {
     "python": [
@@ -25817,14 +25817,6 @@
       "component": "python",
       "source": "wheel-kaldi-native-fbank",
       "member": "kaldi_native_fbank-1.22.3.dist-info/top_level.txt"
-    },
-    {
-      "path": "Lib/site-packages/kaldi_native_fbank-1.22.3.dist-info/uv_cache.json",
-      "bytes": 127,
-      "sha256": "0cd583bc5cdf892b2465a1935eb056855e13430a3c93f9db677002391418fd85",
-      "component": "python",
-      "source": "wheel-kaldi-native-fbank",
-      "member": "kaldi_native_fbank-1.22.3.dist-info/uv_cache.json"
     },
     {
       "path": "Lib/site-packages/kaldi_native_fbank-1.22.3.dist-info/WHEEL",
